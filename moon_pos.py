@@ -1,26 +1,29 @@
+"""Moon position routine ported from Pascal with SymForce support."""
+
 import symforce.symbolic as sf
-import math
 
-PI2 = 6.283185308
-ARC = 206264.81
-
-
-def frac(x: float) -> float:
-    """Return the fractional part of x."""
-    x = x - math.trunc(x)
-    return x + 1.0 if x < 0 else x
+# Use SymForce constants and trigonometry so the routine works with symbolic
+# expressions as well as numeric inputs.
+PI2 = sf.Scalar(6.283185308)
+ARC = sf.Scalar(206264.81)
 
 
-def add_the(c1: float, s1: float, c2: float, s2: float) -> tuple[float, float]:
+def frac(x: sf.Scalar) -> sf.Scalar:
+    """Return the fractional part of ``x`` using SymForce operations."""
+    return sf.Mod(x, 1)
+
+
+def add_the(c1: sf.Scalar, s1: sf.Scalar,
+            c2: sf.Scalar, s2: sf.Scalar) -> tuple[sf.Scalar, sf.Scalar]:
     """Return cosine and sine of the sum of two angles given by their cos/sin."""
     c = c1 * c2 - s1 * s2
     s = s1 * c2 + c1 * s2
     return c, s
 
 
-def sine(phi: float) -> float:
-    """Return sin for phi given in revolutions."""
-    return math.sin(PI2 * frac(phi))
+def sine(phi: sf.Scalar) -> sf.Scalar:
+    """Return ``sin`` for ``phi`` given in revolutions using SymForce."""
+    return sf.sin(PI2 * frac(phi))
 
 
 def long_periodic(T: float) -> tuple[float, float, float, float, float, float]:
@@ -249,9 +252,9 @@ def moon(T: float) -> tuple[float, float, float]:
                 maxn = 6
                 fac = 1.0
             co[0][i] = 1.0
-            co[1][i] = math.cos(arg) * fac
+            co[1][i] = sf.cos(arg) * fac
             si[0][i] = 0.0
-            si[1][i] = math.sin(arg) * fac
+            si[1][i] = sf.sin(arg) * fac
             for j in range(2, maxn + 1):
                 co[j][i], si[j][i] = add_the(co[j - 1][i], si[j - 1][i], co[1][i], si[1][i])
             for j in range(1, maxn + 1):
@@ -270,16 +273,25 @@ def moon(T: float) -> tuple[float, float, float]:
     lambd = 360.0 * frac((l0 + dlam / ARC) / PI2)
     s = f + ds / ARC
     fac = 1.000002708 + 139.978 * dgam
-    beta = (fac * (18518.511 + 1.189 + gam1c) * math.sin(s) - 6.24 * math.sin(3 * s) + n) / 3600.0
+    beta = (fac * (18518.511 + 1.189 + gam1c) * sf.sin(s) - 6.24 * sf.sin(3 * s) + n) / 3600.0
     sinpi_out = sinpi
     sinpi_out *= 0.999953253
     r = ARC / sinpi_out
     return lambd, beta, r
 
 
-def moon_position(T: float) -> tuple[float, float, float]:
-    """Return L, B, R for given T using the MOON algorithm."""
-    return moon(T)
+def moon_position(T: sf.Scalar) -> tuple[sf.Scalar, sf.Scalar, sf.Scalar]:
+    """Return L, B, R for given T using the MOON algorithm.
+
+    Numeric inputs yield floats while symbolic inputs return SymForce scalars.
+    """
+    L, B, R = moon(T)
+    try:
+        return float(L), float(B), float(R)
+    except TypeError:
+        # If conversion fails (likely due to symbolic input), return symbolic
+        # expressions directly.
+        return L, B, R
 
 
 if __name__ == "__main__":
